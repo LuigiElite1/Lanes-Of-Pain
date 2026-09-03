@@ -9,10 +9,10 @@ using TMPro;
 
 public class PlayerMovement : MonoBehaviour
 {
-    public Rigidbody playerRb; // Reference to the player's rigidbody
+    public Rigidbody playerRigidbody; // Reference to the player's rigidbody
 
     [Header("Movement")]
-    [SerializeField] private float maxSpeed = 5f; // Maximum horizontal movement speed
+    [SerializeField] private float maxHorizontalSpeed = 5f; // Maximum horizontal movement speed
     // How quickly the player reaches max speed
     // Higher = snappy, Lower = sluggish
     [SerializeField] private float acceleration = 20f;
@@ -38,7 +38,9 @@ public class PlayerMovement : MonoBehaviour
     public GameObject forwardPoint;
 
     public Material material;
-    public Color originalColor;
+    public Color playerColor;
+
+    public GameObject respawnPoint;
 
     public MeshRenderer meshRenderer;
 
@@ -52,14 +54,14 @@ public class PlayerMovement : MonoBehaviour
 
     private void Awake()
     {
-        playerRb = GetComponent<Rigidbody>(); // Get the Rigidbody attached to this GameObject
+        playerRigidbody = GetComponent<Rigidbody>(); // Get the Rigidbody attached to this GameObject
     }
 
     // Start is called once before the first execution of Update after the MonoBehaviour is created
     void Start()
     {
         material = meshRenderer.material;
-        originalColor = material.color;
+        playerColor = material.color;
 
         pointText = GameObject.FindWithTag("PointText").GetComponent<TextMeshProUGUI>();
     }
@@ -82,13 +84,13 @@ public class PlayerMovement : MonoBehaviour
         if (isDrifting)
         {
             // Get only the player's horizontal velocity
-            Vector3 horizontal = new Vector3(playerRb.linearVelocity.x, 0f, playerRb.linearVelocity.z);
+            Vector3 horizontal = new Vector3(playerRigidbody.linearVelocity.x, 0f, playerRigidbody.linearVelocity.z);
 
             // Gradually slow the player's horizontal movement toward zero
             horizontal = Vector3.MoveTowards(horizontal, Vector3.zero, deceleration * Time.fixedDeltaTime);
 
             // Apply the slowed horizontal velocity while keeping the current vertical velocity
-            playerRb.linearVelocity = new Vector3(horizontal.x, playerRb.linearVelocity.y, horizontal.z);
+            playerRigidbody.linearVelocity = new Vector3(horizontal.x, playerRigidbody.linearVelocity.y, horizontal.z);
 
             // Increase the amount of stored launch force over time.
             // The player reaches the maximum drift force after 'chargeTime' seconds
@@ -111,10 +113,10 @@ public class PlayerMovement : MonoBehaviour
         }
 
         // The velocity the player wants to reach
-        Vector3 targetVelocity = new Vector3(moveInput.x * maxSpeed, playerRb.linearVelocity.y, moveInput.y * maxSpeed);
+        Vector3 targetVelocity = new Vector3(moveInput.x * maxHorizontalSpeed, playerRigidbody.linearVelocity.y, moveInput.y * maxHorizontalSpeed);
 
         // Store the player's current velocity
-        Vector3 currentVelocity = playerRb.linearVelocity;
+        Vector3 currentVelocity = playerRigidbody.linearVelocity;
 
         // Extract only the horizontal movement
         // Ignore Y because gravity and jumping control vertical movement
@@ -130,7 +132,7 @@ public class PlayerMovement : MonoBehaviour
         if (!isDrifting)
         {
             // Combine the new horizontal velocity with the existing vertical velocity
-            playerRb.linearVelocity = new Vector3(horizontalVelocity.x, currentVelocity.y, horizontalVelocity.z);
+            playerRigidbody.linearVelocity = new Vector3(horizontalVelocity.x, currentVelocity.y, horizontalVelocity.z);
         }
     }
 
@@ -147,7 +149,7 @@ public class PlayerMovement : MonoBehaviour
         if (context.performed && isGrounded && !isDrifting)
         {
             // Apply the jump velocity to the y velocity of the player
-            playerRb.linearVelocity = new Vector3(playerRb.linearVelocity.x, jumpForce, playerRb.linearVelocity.z);
+            playerRigidbody.linearVelocity = new Vector3(playerRigidbody.linearVelocity.x, jumpForce, playerRigidbody.linearVelocity.z);
         }
     }
 
@@ -170,7 +172,7 @@ public class PlayerMovement : MonoBehaviour
             dashDirection = new Vector3(moveInput.x, 0f, moveInput.y).normalized;
         }
 
-        playerRb.linearVelocity += dashDirection * dashForce;
+        playerRigidbody.linearVelocity += dashDirection * dashForce;
     }
 
     public void Drift(InputAction.CallbackContext context)
@@ -189,7 +191,7 @@ public class PlayerMovement : MonoBehaviour
         else if (context.canceled)
         {
             Debug.Log("Not Drifting");
-            material.color = originalColor;
+            material.color = playerColor;
 
             isDrifting = false; // Exit the drifting state so normal movement resumes
 
@@ -205,10 +207,23 @@ public class PlayerMovement : MonoBehaviour
 
             // Preserve the player's current vertical velocity so
             // releasing a drift doesn't cancel jumps or falling
-            velocity.y = playerRb.linearVelocity.y;
+            velocity.y = playerRigidbody.linearVelocity.y;
 
             // Apply the launch velocity to the player
-            playerRb.linearVelocity = velocity;
+            playerRigidbody.linearVelocity = velocity;
+        }
+    }
+
+    private void respawn()
+    {
+        gameObject.transform.position = respawnPoint.transform.position;
+    }
+
+    private void OnTriggerEnter(Collider other)
+    {
+        if (other.tag == "Respawn")
+        {
+            respawn();
         }
     }
 
